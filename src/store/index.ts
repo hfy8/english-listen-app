@@ -61,6 +61,7 @@ interface AppState {
   // Actions - Practice params (backup when location.state is lost)
   setPendingPracticeParams: (params: { words: Word[]; level: LevelId; theme: ThemeId } | null) => void;
   clearPendingPracticeParams: () => void;
+  restorePendingPracticeParams: () => { words: Word[]; level: LevelId; theme: ThemeId } | null;
 
   // Actions - Toast
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -243,8 +244,44 @@ export const useStore = create<AppState>((set, get) => ({
   setCurrentLevel: (level) => set({ currentLevel: level }),
   setCurrentTheme: (theme) => set({ currentTheme: theme }),
 
-  setPendingPracticeParams: (params) => set({ pendingPracticeParams: params }),
-  clearPendingPracticeParams: () => set({ pendingPracticeParams: null }),
+  setPendingPracticeParams: (params) => {
+    set({ pendingPracticeParams: params });
+    if (params) {
+      // Persist to localStorage so it survives WebView recreation
+      storage.setPracticeParams({
+        words: params.words.map((w) => ({
+          id: w.id,
+          word: w.word,
+          chinese: w.chinese,
+          phonetic: w.phonetic,
+          theme: w.theme,
+          level: w.level,
+        })),
+        level: params.level,
+        theme: params.theme,
+      });
+    } else {
+      storage.clearPracticeParams();
+    }
+  },
+
+  clearPendingPracticeParams: () => {
+    set({ pendingPracticeParams: null });
+    storage.clearPracticeParams();
+  },
+
+  restorePendingPracticeParams: () => {
+    const saved = storage.getPracticeParams();
+    if (!saved) return null;
+    // Re-hydrate into store
+    const params = {
+      words: saved.words as Word[],
+      level: saved.level as LevelId,
+      theme: saved.theme as ThemeId,
+    };
+    set({ pendingPracticeParams: params });
+    return params;
+  },
 
   showToast: (message, type = 'info') => {
     const id = Date.now().toString();

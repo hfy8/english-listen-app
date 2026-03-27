@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 
-const TTS_INIT_TIMEOUT = 4000; // ms to wait for TTS engine to init
+const TTS_INIT_TIMEOUT = 6000; // ms to wait for TTS engine to init
 
 export function useAudio() {
   const { settings } = useStore();
-  const initializedRef = useRef(false);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const readyRef = useRef(false);
+  const speakQueueRef = useRef<(() => void)[]>([]);
 
   // Initialize TTS engine once
   useEffect(() => {
@@ -23,8 +24,16 @@ export function useAudio() {
     loadVoices();
 
     // Chrome requires waiting for voiceschanged event
-    if (tts.onvoiceschanged !== undefined) {
-      tts.onvoiceschanged = () => loadVoices();
+    if (typeof tts.onvoiceschanged !== 'undefined') {
+      tts.onvoiceschanged = () => {
+        loadVoices();
+        // Flush queued speak calls once voices are ready
+        if (!readyRef.current && voicesRef.current.length > 0) {
+          readyRef.current = true;
+          speakQueueRef.current.forEach((fn) => fn());
+          speakQueueRef.current = [];
+        }
+      };
     }
 
     // Poll until voices are loaded or timeout
@@ -32,9 +41,15 @@ export function useAudio() {
     const poll = setInterval(() => {
       loadVoices();
       elapsed += 200;
-      if (voicesRef.current.length > 0 || elapsed >= TTS_INIT_TIMEOUT) {
+      if (voicesRef.current.length > 0) {
+        readyRef.current = true;
         clearInterval(poll);
-        initializedRef.current = true;
+        speakQueueRef.current.forEach((fn) => fn());
+        speakQueueRef.current = [];
+      } else if (elapsed >= TTS_INIT_TIMEOUT) {
+        clearInterval(poll);
+        // Give up waiting — still allow speak attempts (system TTS may work without explicit voices)
+        readyRef.current = true;
       }
     }, 200);
 
@@ -56,7 +71,6 @@ export function useAudio() {
 
         const utterance = new SpeechSynthesisUtterance(word);
         utterance.lang = 'en-US';
-        // Use configurable speed, with safe bounds for Android
         utterance.rate = Math.max(0.5, Math.min(1.5, settings.ttsSpeed));
         utterance.pitch = 1.1;
         utterance.volume = 1.0;
@@ -73,32 +87,21 @@ export function useAudio() {
           utterance.voice = preferredVoice;
         }
 
-        // Android WebView: ensure TTS engine is not busy
-        utterance.onstart = () => {
-          // console.debug('[useAudio] TTS started:', word);
-        };
+        let didError = false;
 
-        utterance.onend = () => {
-          // console.debug('[useAudio] TTS ended:', word);
-        };
-
-        utterance.onerror = (e) => {
-          // On Android, ERROR_AUDIO may be recoverable - retry once
-          if (!initializedRef.current) {
-            initializedRef.current = true;
-            // Retry once with a fresh utterance
-            setTimeout(() => {
-              window.speechSynthesis.cancel();
-              const retry = new SpeechSynthesisUtterance(word);
-              retry.lang = 'en-US';
-              retry.rate = settings.ttsSpeed;
-              retry.pitch = 1.1;
-              if (preferredVoice) retry.voice = preferredVoice;
-              window.speechSynthesis.speak(retry);
-            }, 100);
-          } else {
-            console.warn('[useAudio] TTS error:', e.error);
-          }
+        utterance.onerror = (_e) => {
+          if (didError) return;
+          didError = true;
+          // Android WebView: retry once after a short delay
+          setTimeout(() => {
+            window.speechSynthesis.cancel();
+            const retry = new SpeechSynthesisUtterance(word);
+            retry.lang = 'en-US';
+            retry.rate = Math.max(0.5, Math.min(1.5, settings.ttsSpeed));
+            retry.pitch = 1.1;
+            if (preferredVoice) retry.voice = preferredVoice;
+            window.speechSynthesis.speak(retry);
+          }, 150);
         };
 
         window.speechSynthesis.speak(utterance);

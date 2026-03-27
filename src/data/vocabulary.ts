@@ -142,7 +142,7 @@ export const VOCABULARY: Word[] = [
   { id: 'w074', word: 'card', chinese: '卡片', phonetic: '/kɑːrd/', theme: 'toy', level: 'grade3' },
   { id: 'w075', word: 'doll', chinese: '娃娃', phonetic: '/dɒl/', theme: 'toy', level: 'grade3' },
   { id: 'w076', word: 'bear', chinese: '熊', phonetic: '/ber/', theme: 'toy', level: 'grade3' },
-  { id: 'w077', word: ' kite', chinese: '风筝', phonetic: '/kaɪt/', theme: 'toy', level: 'grade3' },
+  { id: 'w077', word: 'kite', chinese: '风筝', phonetic: '/kaɪt/', theme: 'toy', level: 'grade3' },
   { id: 'w078', word: 'boat', chinese: '小船', phonetic: '/boʊt/', theme: 'toy', level: 'grade3' },
   // 三年级 - 身体
   { id: 'w079', word: 'hand', chinese: '手', phonetic: '/hænd/', theme: 'body', level: 'grade3' },

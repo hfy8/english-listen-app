@@ -46,7 +46,9 @@ const Test: React.FC = () => {
   } = useStore();
 
   // Stable questions array (generated once)
-  const questionsRef = useRef<TestQuestion[]>(generateTest());
+  const questionsRef = useRef<TestQuestion[]>(
+    VOCABULARY.length > 0 ? generateTest() : []
+  );
   const questions = questionsRef.current;
 
   const [currentIdx, setCurrentIdx] = useState(0);

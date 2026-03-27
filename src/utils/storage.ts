@@ -4,7 +4,14 @@ const KEYS = {
   USER_REWARDS: 'user_rewards',
   APP_SETTINGS: 'app_settings',
   LAST_LOGIN_DATE: 'last_login_date',
+  PRACTICE_PARAMS: 'practice_params',
 } as const;
+
+export interface PendingPracticeParams {
+  words: { id: string; word: string; chinese: string; phonetic: string; theme: string; level: string }[];
+  level: string;
+  theme: string;
+}
 
 export interface UserProfile {
   name: string;
@@ -116,6 +123,17 @@ export const storage = {
 
   getLastLogin: () => localStorage.getItem(KEYS.LAST_LOGIN_DATE),
   setLastLogin: (date: string) => localStorage.setItem(KEYS.LAST_LOGIN_DATE, date),
+
+  // Practice params — persisted to survive WebView recreation
+  getPracticeParams: (): PendingPracticeParams | null => {
+    const fallback: PendingPracticeParams | null = null;
+    return getItem<PendingPracticeParams | null>(KEYS.PRACTICE_PARAMS, fallback);
+  },
+  setPracticeParams: (params: PendingPracticeParams) =>
+    setItem(KEYS.PRACTICE_PARAMS, params),
+  clearPracticeParams: () => {
+    try { localStorage.removeItem(KEYS.PRACTICE_PARAMS); } catch { /* noop */ }
+  },
 
   clearAll: () => {
     Object.values(KEYS).forEach((k) => localStorage.removeItem(k));

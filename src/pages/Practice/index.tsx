@@ -28,6 +28,7 @@ const Practice: React.FC = () => {
     pendingPracticeParams,
     setPendingPracticeParams,
     clearPendingPracticeParams,
+    restorePendingPracticeParams,
   } = useStore();
 
   const [showFeedback, setShowFeedback] = useState(false);
@@ -37,7 +38,7 @@ const Practice: React.FC = () => {
   const inputRef = useRef<string[]>([]);
   const initializedRef = useRef(false);
 
-  // Determine params: prefer location.state, fall back to store
+  // Determine params: prefer location.state, fall back to store, then localStorage
   const state = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
   const params = state?.words?.length ? state : pendingPracticeParams;
 
@@ -46,13 +47,19 @@ const Practice: React.FC = () => {
     initializedRef.current = true;
 
     if (params?.words && params.words.length > 0) {
-      // Store in Zustand as backup (survives location.state loss on Android WebView)
+      // Store in Zustand + localStorage (survives location.state loss on Android WebView)
       setPendingPracticeParams({ words: params.words, level: params.level, theme: params.theme });
       startSession(params.words);
     } else if (session?.words?.length) {
       // Session already exists — no need to re-init
     } else {
-      navigate('/levels');
+      // WebView was recreated: try to restore from localStorage
+      const restored = restorePendingPracticeParams();
+      if (restored?.words?.length) {
+        startSession(restored.words);
+      } else {
+        navigate('/levels');
+      }
     }
   }, []);
 
