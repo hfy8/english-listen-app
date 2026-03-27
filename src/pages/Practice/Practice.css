@@ -1,0 +1,143 @@
+.practice-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--background);
+}
+
+.practice-header {
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.practice-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: white;
+}
+
+.practice-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #E0E0E0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.practice-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.practice-progress-text {
+  font-family: var(--font-en);
+  font-size: 16px;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: right;
+}
+
+.practice-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg) var(--space-md);
+  gap: var(--space-md);
+}
+
+.play-button {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(255, 107, 107, 0.4);
+  gap: var(--space-xs);
+}
+
+.play-icon {
+  font-size: 48px;
+}
+
+.play-text {
+  font-size: 14px;
+  color: white;
+  font-weight: 600;
+}
+
+.chinese-hint {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.phonetic-hint {
+  font-size: 18px;
+  color: var(--text-secondary);
+  font-family: var(--font-en);
+}
+
+.wrong-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 18px;
+  color: var(--text-secondary);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--error-light);
+  border-radius: var(--radius-xl);
+}
+
+.wrong-icon {
+  font-size: 20px;
+}
+
+.correct-answer {
+  font-family: var(--font-en);
+  font-weight: 700;
+  color: var(--success);
+  font-size: 20px;
+}
+
+.practice-keyboard {
+  flex-shrink: 0;
+}
+
+.skip-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: var(--space-sm) var(--space-md);
+  padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom, 0));
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+}
+
+.loading-emoji {
+  font-size: 64px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

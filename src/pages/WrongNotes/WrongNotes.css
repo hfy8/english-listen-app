@@ -1,0 +1,111 @@
+.wrong-page .page-title {
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.wrong-stats {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+.wrong-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.wrong-stat-icon {
+  font-size: 36px;
+}
+
+.wrong-stat-num {
+  font-family: var(--font-en);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--error);
+}
+
+.wrong-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.wrong-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.wrong-card {
+  padding: var(--space-lg);
+}
+
+.wrong-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.wrong-word-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.wrong-emoji {
+  font-size: 24px;
+}
+
+.wrong-word {
+  font-family: var(--font-en);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.wrong-phonetic {
+  font-size: 16px;
+  color: var(--text-secondary);
+  font-family: var(--font-en);
+}
+
+.wrong-level-chip {
+  font-size: 12px;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.wrong-chinese {
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: var(--space-sm);
+}
+
+.wrong-your-answer {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-md);
+}
+
+.wrong-answer-text {
+  font-family: var(--font-en);
+  color: var(--error);
+  font-weight: 700;
+  text-decoration: line-through;
+}
+
+.wrong-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wrong-hint {
+  font-size: 13px;
+  color: var(--text-secondary);
+}

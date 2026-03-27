@@ -1,0 +1,115 @@
+.level-page .page-title {
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.level-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 3px solid;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: transform 0.15s;
+  text-align: left;
+  padding: 0;
+}
+
+.level-card:active {
+  transform: scale(0.97);
+}
+
+.level-card-header {
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.level-card-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+}
+
+.level-complete-badge {
+  font-size: 20px;
+}
+
+.level-card-body {
+  padding: var(--space-md);
+}
+
+.level-progress-bar {
+  height: 8px;
+  background: #E0E0E0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.level-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.level-progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+  text-align: right;
+}
+
+/* Theme Grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+.theme-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  border: 3px solid;
+  box-shadow: var(--shadow-card);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  transition: transform 0.15s;
+  text-align: center;
+}
+
+.theme-card:active {
+  transform: scale(0.97);
+}
+
+.theme-emoji {
+  font-size: 48px;
+}
+
+.theme-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.theme-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-family: var(--font-en);
+}
+
+.theme-done {
+  font-size: 12px;
+  color: var(--success);
+  font-weight: 600;
+}

@@ -1,0 +1,180 @@
+.home-page {
+  background: var(--background);
+}
+
+.home-header {
+  padding: var(--space-lg) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.home-greeting {
+  padding-top: var(--space-md);
+}
+
+.home-welcome {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.wave-emoji {
+  display: inline-block;
+  animation: wave 1s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(20deg); }
+  75% { transform: rotate(-20deg); }
+}
+
+.home-subtitle {
+  font-size: 18px;
+  color: var(--text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.points-card {
+  background: linear-gradient(135deg, var(--accent), #ffd700);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-card);
+}
+
+.points-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.points-star {
+  font-size: 36px;
+}
+
+.points-value {
+  font-family: var(--font-en);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.points-label {
+  font-size: 14px;
+  color: var(--text-primary);
+  opacity: 0.8;
+}
+
+.streak-badge {
+  background: rgba(255,255,255,0.5);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-xl);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.start-btn {
+  width: 100%;
+  height: 72px;
+  font-size: 24px;
+  border-radius: var(--radius-xl);
+}
+
+.start-btn::before {
+  content: '🎮 ';
+}
+
+.quick-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.quick-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-lg);
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s;
+}
+
+.quick-card:active {
+  transform: scale(0.97);
+}
+
+.quick-card-emoji {
+  font-size: 40px;
+  margin-bottom: var(--space-xs);
+}
+
+.quick-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.quick-card-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.progress-card {
+  padding: var(--space-lg);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.progress-text {
+  color: var(--text-secondary);
+}
+
+.level-progress {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.level-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 14px;
+}
+
+.level-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.level-name {
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.level-count {
+  color: var(--text-secondary);
+  font-family: var(--font-en);
+}
