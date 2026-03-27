@@ -9,7 +9,7 @@ import LetterKeyboard from '../../components/common/LetterKeyboard';
 import FeedbackModal from '../../components/common/FeedbackModal';
 import './Practice.css';
 
-// Keys for sessionStorage (synchronous, survives WebView state loss)
+// Keys for sessionStorage (同步写入，跨 WebView 重启持久化)
 const PRACTICE_PARAMS_KEY = '__pw_params__';
 
 interface PracticeParams {
@@ -18,11 +18,13 @@ interface PracticeParams {
   theme: ThemeId;
 }
 
-function getStoredParams(): PracticeParams | null {
+function readSessionStorage(): PracticeParams | null {
   try {
     const raw = sessionStorage.getItem(PRACTICE_PARAMS_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+    return raw ? (JSON.parse(raw) as PracticeParams) : null;
+  } catch {
+    return null;
+  }
 }
 
 const Practice: React.FC = () => {
@@ -44,8 +46,7 @@ const Practice: React.FC = () => {
     clearPendingPracticeParams,
   } = useStore();
 
-  const [isReady, setIsReady] = useState(false);
-  const [params, setParams] = useState<PracticeParams | null>(null);
+  // ── 所有 hooks 必须无条件调用 ──────────────────────────────────────────────
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
@@ -53,58 +54,58 @@ const Practice: React.FC = () => {
   const inputRef = useRef<string[]>([]);
   const inputKey = useRef(0);
 
-  // Initialize on mount - use sessionStorage as primary source (not Zustand)
+  // initFlagRef: 防止 useEffect 在每次渲染时都执行初始化逻辑
+  const initFlagRef = useRef(false);
+
+  // 初始化：只在首次渲染时运行（类似 componentDidMount）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    let mounted = true;
+    if (initFlagRef.current) return;
+    initFlagRef.current = true;
 
-    // Read params from location.state first, then sessionStorage fallback
     const locState = location.state as PracticeParams | null;
-    const storedParams = getStoredParams();
+    const storedParams = readSessionStorage();
 
-    let resolvedParams: PracticeParams | null = null;
-    let resolvedWords: Word[] = [];
+    console.log('[Practice] Init:', {
+      locationStateWords: locState?.words?.length,
+      storedParamsWords: storedParams?.words?.length,
+    });
 
     if (locState?.words?.length) {
-      console.log('[Practice] Using location.state words:', locState.words.length);
-      resolvedParams = locState;
-      resolvedWords = locState.words;
+      console.log('[Practice] Source: location.state, words:', locState.words.length);
+      sessionStorage.setItem(PRACTICE_PARAMS_KEY, JSON.stringify(locState));
+      startSession(locState.words);
     } else if (storedParams?.words?.length) {
-      console.log('[Practice] Using sessionStorage words:', storedParams.words.length);
-      resolvedParams = storedParams;
-      resolvedWords = storedParams.words;
+      console.log('[Practice] Source: sessionStorage, words:', storedParams.words.length);
+      startSession(storedParams.words);
+    } else if (session?.words?.length) {
+      console.log('[Practice] Source: existing session, words:', session.words.length);
     } else {
-      console.log('[Practice] location.state and sessionStorage both empty, session:', session?.words?.length);
-      if (session?.words?.length) {
-        resolvedParams = storedParams || null;
-        resolvedWords = session.words;
-      }
+      console.log('[Practice] No words found, redirecting...');
+      navigate('/levels');
     }
+  }, []);
 
-    if (!resolvedParams || !resolvedWords.length) {
-      // No words - redirect
-      console.log('[Practice] No words found, redirecting to /levels');
-      if (mounted) navigate('/levels');
-      return;
+  // 依赖 deps 固定，hooks 调用顺序永远不会变 ───────────────────────────────
+
+  // currentWord / levelInfo / themeInfo：用条件计算，但不在 hooks 调用前 return
+  const params: PracticeParams | null = (location.state as PracticeParams | null) || readSessionStorage();
+  const currentWord: Word | null = session?.words?.length ? session.words[session.currentIndex] : null;
+  const levelInfo = params ? getLevelInfo(params.level) : null;
+  const themeInfo = currentWord ? getWrongTheme(currentWord.theme) : null;
+
+  // Auto-play
+  useEffect(() => {
+    if (currentWord && !answered) {
+      const timer = setTimeout(() => speak(currentWord.word), 300);
+      return () => clearTimeout(timer);
     }
+  }, [session?.currentIndex, answered, currentWord?.word, speak]);
 
-    // Store synchronously for future mounts
-    sessionStorage.setItem(PRACTICE_PARAMS_KEY, JSON.stringify(resolvedParams));
+  // ── 所有 hooks 调用完毕后才做 UI 条件渲染 ────────────────────────────────
 
-    // Start session in store
-    console.log('[Practice] Starting session with', resolvedWords.length, 'words, first word:', resolvedWords[0]?.word);
-    startSession(resolvedWords);
-
-    if (mounted) {
-      setParams(resolvedParams);
-      setIsReady(true);
-      console.log('[Practice] isReady=true');
-    }
-
-    return () => { mounted = false; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Wait for session to be ready
-  if (!isReady || !session || session.words.length === 0) {
+  // Loading 状态：session 还没初始化
+  if (!session?.words?.length) {
     return (
       <div className="page practice-page">
         <div className="loading-state">
@@ -115,26 +116,16 @@ const Practice: React.FC = () => {
     );
   }
 
-  const currentWord: Word = session.words[session.currentIndex];
-  const levelInfo = params ? getLevelInfo(params.level) : null;
-  const themeInfo = getWrongTheme(currentWord.theme);
-
-  // Auto-play on new word
-  useEffect(() => {
-    if (!answered) {
-      const timer = setTimeout(() => speak(currentWord.word), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [session.currentIndex, answered, currentWord.word, speak]);
+  // ── 正常渲染（session 已就绪，所有 hooks 已无条件调用） ──────────────────
 
   const handleKeyPress = useCallback(
     (letter: string) => {
-      if (answered) return;
+      if (answered || !currentWord) return;
       if (inputRef.current.length >= currentWord.word.length) return;
       inputRef.current = [...inputRef.current, letter.toUpperCase()];
       inputKey.current += 1;
     },
-    [answered, currentWord.word]
+    [answered, currentWord]
   );
 
   const handleDelete = useCallback(() => {
@@ -144,7 +135,7 @@ const Practice: React.FC = () => {
   }, [answered]);
 
   const handleConfirm = useCallback(() => {
-    if (answered || inputRef.current.length === 0) return;
+    if (answered || !currentWord || inputRef.current.length === 0) return;
 
     const answer = inputRef.current.join('').toLowerCase();
     const correct = answer === currentWord.word.toLowerCase();
@@ -157,8 +148,7 @@ const Practice: React.FC = () => {
       addPoints(10);
       addCompletedWord(currentWord.id);
       removeWrongWord(currentWord.word);
-      const stickerChance = Math.random();
-      if (stickerChance < 0.2) {
+      if (Math.random() < 0.2) {
         const stickers = ['⭐', '🌟', '🔥', '💎', '🌈', '🎀'];
         const sticker = stickers[Math.floor(Math.random() * stickers.length)];
         addSticker(sticker);
@@ -189,8 +179,7 @@ const Practice: React.FC = () => {
   }, [nextWord]);
 
   const handleSkip = useCallback(() => {
-    if (answered) return;
-    handleNext();
+    if (!answered) handleNext();
   }, [answered, handleNext]);
 
   const total = session.words.length;
@@ -233,10 +222,9 @@ const Practice: React.FC = () => {
 
       {/* Main content */}
       <div className="practice-content">
-        {/* Play button */}
         <motion.div
           className="play-button"
-          onClick={() => speak(currentWord.word)}
+          onClick={() => currentWord && speak(currentWord.word)}
           whileTap={{ scale: 0.95 }}
           whileHover={{ scale: 1.05 }}
         >
@@ -244,19 +232,17 @@ const Practice: React.FC = () => {
           <div className="play-text">点击播放</div>
         </motion.div>
 
-        {/* Chinese hint */}
         <div className="chinese-hint animate-slide-up">
-          {currentWord.chinese}
+          {currentWord?.chinese}
         </div>
 
-        {/* Phonetic */}
         {settings.showPhonetic && (
-          <div className="phonetic-hint">{currentWord.phonetic}</div>
+          <div className="phonetic-hint">{currentWord?.phonetic}</div>
         )}
 
         {/* Answer slots */}
         <div className="answer-slot" key={inputKey.current}>
-          {currentWord.word.split('').map((_, idx) => (
+          {currentWord?.word.split('').map((_, idx) => (
             <div
               key={idx}
               className={`slot-char ${inputRef.current[idx] ? 'filled' : ''}`}
@@ -266,9 +252,8 @@ const Practice: React.FC = () => {
           ))}
         </div>
 
-        {/* Wrong answer indicator */}
         <AnimatePresence>
-          {showFeedback && !isCorrect && (
+          {showFeedback && !isCorrect && currentWord && (
             <motion.div
               className="wrong-indicator animate-slide-up"
               initial={{ opacity: 0, y: 10 }}
@@ -296,14 +281,16 @@ const Practice: React.FC = () => {
       <div className="skip-hint">点击右上角「跳过」可跳过不认识的词</div>
 
       {/* Feedback Modal */}
-      <FeedbackModal
-        show={showFeedback}
-        correct={isCorrect}
-        word={currentWord}
-        userAnswer={inputRef.current.join('')}
-        onNext={handleNext}
-        points={10}
-      />
+      {currentWord && (
+        <FeedbackModal
+          show={showFeedback}
+          correct={isCorrect}
+          word={currentWord}
+          userAnswer={inputRef.current.join('')}
+          onNext={handleNext}
+          points={10}
+        />
+      )}
 
       {/* Confetti */}
       <AnimatePresence>
@@ -313,7 +300,7 @@ const Practice: React.FC = () => {
               <motion.div
                 key={i}
                 className="star-particle"
-                style={{ left: `${20 + (i * 8)}%`, top: `${30 + (i % 3) * 10}%` }}
+                style={{ left: `${20 + i * 8}%`, top: `${30 + (i % 3) * 10}%` }}
                 initial={{ opacity: 0, y: 0 }}
                 animate={{ opacity: [0, 1, 0], y: -80, rotate: i * 45 }}
                 exit={{ opacity: 0 }}
