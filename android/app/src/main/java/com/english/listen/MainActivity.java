@@ -2,12 +2,8 @@ package com.english.listen;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
-import com.english.listen.tts.TtsPlugin;
 
 public class MainActivity extends BridgeActivity {
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        registerPlugin(TtsPlugin.class);
-    }
+    // Capacitor 8: plugins auto-discovered via @CapacitorPlugin annotation
+    // No manual registration needed when 'io.ionic.capacitor' gradle plugin is applied
 }
