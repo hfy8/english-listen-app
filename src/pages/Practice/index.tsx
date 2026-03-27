@@ -25,6 +25,9 @@ const Practice: React.FC = () => {
     addSticker,
     showToast,
     settings,
+    pendingPracticeParams,
+    setPendingPracticeParams,
+    clearPendingPracticeParams,
   } = useStore();
 
   const [showFeedback, setShowFeedback] = useState(false);
@@ -34,22 +37,26 @@ const Practice: React.FC = () => {
   const inputRef = useRef<string[]>([]);
   const initializedRef = useRef(false);
 
+  // Determine params: prefer location.state, fall back to store
   const state = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
+  const params = state?.words?.length ? state : pendingPracticeParams;
 
-  // Initialize session once when page loads
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
-    if (state?.words && state.words.length > 0) {
-      startSession(state.words);
+    if (params?.words && params.words.length > 0) {
+      // Store in Zustand as backup (survives location.state loss on Android WebView)
+      setPendingPracticeParams({ words: params.words, level: params.level, theme: params.theme });
+      startSession(params.words);
+    } else if (session?.words?.length) {
+      // Session already exists — no need to re-init
     } else {
-      // No words provided - redirect back to level select
       navigate('/levels');
     }
-  }, [state?.words, startSession, navigate]);
+  }, []);
 
-  // Guard: wait for session to be ready
+  // Wait for session to be ready
   if (!session || session.words.length === 0) {
     return (
       <div className="page practice-page">
@@ -62,10 +69,10 @@ const Practice: React.FC = () => {
   }
 
   const currentWord: Word = session.words[session.currentIndex];
-  const levelInfo = state?.level ? getLevelInfo(state.level) : null;
+  const levelInfo = params?.level ? getLevelInfo(params.level) : null;
   const themeInfo = getWrongTheme(currentWord.theme);
 
-  // Auto-play when a new word appears
+  // Auto-play when new word appears
   useEffect(() => {
     if (!answered) {
       const timer = setTimeout(() => speak(currentWord.word), 300);
@@ -144,7 +151,7 @@ const Practice: React.FC = () => {
     <div className="page practice-page">
       {/* Header */}
       <div className="header-bar safe-top practice-header">
-        <button className="header-back" onClick={() => navigate('/levels')}>← 返回</button>
+        <button className="header-back" onClick={() => { clearPendingPracticeParams(); navigate('/levels'); }}>← 返回</button>
         <div className="header-title">
           {levelInfo?.name} · {themeInfo?.emoji} {themeInfo?.name}
         </div>
@@ -296,7 +303,7 @@ const Practice: React.FC = () => {
               <button
                 className="btn btn-primary btn-full"
                 style={{ marginTop: 'var(--space-lg)' }}
-                onClick={() => navigate('/')}
+                onClick={() => { clearPendingPracticeParams(); navigate('/'); }}
               >
                 返回首页
               </button>

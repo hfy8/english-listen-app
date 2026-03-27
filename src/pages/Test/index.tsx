@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VOCABULARY } from '../../data/vocabulary';
@@ -13,32 +13,42 @@ type TestType = 'choice' | 'spell';
 interface TestQuestion {
   word: Word;
   type: TestType;
-  options?: string[]; // for choice type
+  options?: string[];
 }
 
 const TOTAL_QUESTIONS = 10;
 const TIME_PER_QUESTION = 30;
 
-const generateTest = (): TestQuestion[] => {
+function generateTest(): TestQuestion[] {
   const shuffled = [...VOCABULARY].sort(() => Math.random() - 0.5).slice(0, TOTAL_QUESTIONS);
   return shuffled.map((word) => {
     const type: TestType = Math.random() > 0.5 ? 'choice' : 'spell';
     let options: string[] | undefined;
     if (type === 'choice') {
-      // Pick 3 wrong words
       const others = VOCABULARY.filter((w) => w.id !== word.id).slice(0, 3);
       options = [word.word, ...others.map((w) => w.word)].sort(() => Math.random() - 0.5);
     }
     return { word, type, options };
   });
-};
+}
 
 const Test: React.FC = () => {
   const navigate = useNavigate();
   const { speak } = useAudio();
-  const { addPoints, recordTestResult, addWrongWord, addCompletedWord, removeWrongWord, addBadge, showToast } = useStore();
+  const {
+    addPoints,
+    recordTestResult,
+    addWrongWord,
+    addCompletedWord,
+    removeWrongWord,
+    addBadge,
+    showToast,
+  } = useStore();
 
-  const [questions] = useState<TestQuestion[]>(() => generateTest());
+  // Stable questions array (generated once)
+  const questionsRef = useRef<TestQuestion[]>(generateTest());
+  const questions = questionsRef.current;
+
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<{ correct: boolean }[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -47,43 +57,94 @@ const Test: React.FC = () => {
   const [isCorrect, setIsCorrect] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION);
   const [isFinished, setIsFinished] = useState(false);
-  const timerRef = useRef<number | null>(null);
 
-  const currentQ = questions[currentIdx];
+  // Use refs to avoid stale closures in timer
+  const idxRef = useRef(currentIdx);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inputRef = useRef<string[]>([]);
 
-  const clearTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-  };
+  // Keep refs in sync with state
+  useEffect(() => { idxRef.current = currentIdx; }, [currentIdx]);
+
+  const currentQ = questions[currentIdx];
+
+  // Timer
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
 
   const startTimer = useCallback(() => {
     clearTimer();
     setTimeLeft(TIME_PER_QUESTION);
-    timerRef.current = window.setInterval(() => {
+    timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
           clearTimer();
-          // Time's up - treat as wrong
-          handleAnswer(false, '');
+          // Time's up - treat as wrong (pass empty string as user answer)
+          handleTimeUpRef.current();
           return 0;
         }
         return t - 1;
       });
     }, 1000);
-  }, []);
+  }, [clearTimer]);
 
+  // handleTimeUp - defined via ref to avoid stale closure
+  const handleTimeUpRef = useRef<() => void>(() => {});
+
+  const moveToNext = useCallback((correct: boolean) => {
+    setShowFeedback(false);
+    setSelectedOption(null);
+    setSpellInput('');
+    inputRef.current = [];
+    setAnswers((prev) => [...prev, { correct }]);
+
+    const nextIdx = idxRef.current + 1;
+    if (nextIdx >= questions.length) {
+      setIsFinished(true);
+    } else {
+      setCurrentIdx(nextIdx);
+    }
+  }, [questions.length]);
+
+  // Assign handleTimeUp AFTER moveToNext is declared
+  handleTimeUpRef.current = () => {
+    if (showFeedback || isFinished) return;
+    const q = questions[idxRef.current];
+    if (!q) return;
+    addWrongWord({
+      word: q.word.word,
+      chinese: q.word.chinese,
+      phonetic: q.word.phonetic,
+      wrongAnswer: '',
+      level: q.word.level,
+      theme: q.word.theme,
+      count: 0,
+      lastWrongDate: new Date().toISOString(),
+    });
+    moveToNext(true);
+  };
+
+  // Start timer on question change
   useEffect(() => {
-    if (!isFinished && !showFeedback && currentQ) {
-      startTimer();
-      if (currentQ.type === 'spell') {
-        speak(currentQ.word.word);
-      }
+    if (isFinished || showFeedback) {
+      clearTimer();
+      return;
+    }
+    startTimer();
+    // Play TTS for spell questions
+    if (currentQ?.type === 'spell') {
+      speak(currentQ.word.word);
     }
     return clearTimer;
-  }, [currentIdx, isFinished, showFeedback, currentQ, startTimer, speak]);
+  }, [currentIdx, isFinished, showFeedback, currentQ, startTimer, clearTimer, speak]);
 
   const handleAnswer = useCallback((correct: boolean, userAnswer: string) => {
     clearTimer();
+    if (!currentQ) return;
     setIsCorrect(correct);
     setShowFeedback(true);
 
@@ -103,47 +164,37 @@ const Test: React.FC = () => {
         lastWrongDate: new Date().toISOString(),
       });
     }
-  }, [currentQ, addPoints, addCompletedWord, addWrongWord, removeWrongWord]);
+  }, [currentQ, clearTimer, addPoints, addCompletedWord, addWrongWord, removeWrongWord]);
 
-  const handleOptionSelect = (option: string) => {
-    if (selectedOption) return;
+  const handleOptionSelect = useCallback((option: string) => {
+    if (selectedOption || !currentQ) return;
     setSelectedOption(option);
-    const correct = option === currentQ.word.word;
-    handleAnswer(correct, option);
-  };
+    handleAnswer(option === currentQ.word.word, option);
+  }, [selectedOption, currentQ, handleAnswer]);
 
-  const handleSpellConfirm = () => {
+  const handleSpellConfirm = useCallback(() => {
+    if (!currentQ) return;
     const answer = inputRef.current.join('').toLowerCase();
     handleAnswer(answer === currentQ.word.word.toLowerCase(), answer);
-  };
+  }, [currentQ, handleAnswer]);
 
-  const handleSpellKey = (letter: string) => {
+  const handleSpellKey = useCallback((letter: string) => {
+    if (!currentQ) return;
     if (inputRef.current.length >= currentQ.word.word.length) return;
     inputRef.current = [...inputRef.current, letter.toUpperCase()];
     setSpellInput(inputRef.current.join(''));
-  };
+  }, [currentQ]);
 
-  const handleSpellDelete = () => {
+  const handleSpellDelete = useCallback(() => {
     inputRef.current = inputRef.current.slice(0, -1);
     setSpellInput(inputRef.current.join(''));
-  };
+  }, []);
 
-  const handleNext = () => {
-    setShowFeedback(false);
-    setSelectedOption(null);
-    setSpellInput('');
-    inputRef.current = [];
-    setAnswers((prev) => [...prev, { correct: isCorrect }]);
+  const handleNext = useCallback(() => {
+    moveToNext(isCorrect);
+  }, [isCorrect, selectedOption, spellInput, moveToNext]);
 
-    const nextIdx = currentIdx + 1;
-    if (nextIdx >= questions.length) {
-      setIsFinished(true);
-    } else {
-      setCurrentIdx(nextIdx);
-    }
-  };
-
-  const handleFinish = () => {
+  const handleFinish = useCallback(() => {
     const allAnswers = [...answers, { correct: isCorrect }];
     const correctCount = allAnswers.filter((a) => a.correct).length;
     const isPerfect = correctCount === TOTAL_QUESTIONS;
@@ -153,10 +204,14 @@ const Test: React.FC = () => {
       addBadge('perfect_3');
       showToast('🎉 满分！+50 积分！', 'success');
     }
-
     recordTestResult(isPerfect);
     navigate('/');
-  };
+  }, [answers, isCorrect, addPoints, addBadge, showToast, recordTestResult, navigate]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return clearTimer;
+  }, [clearTimer]);
 
   if (isFinished) {
     const correctCount = answers.filter((a) => a.correct).length + (isCorrect ? 1 : 0);
@@ -189,6 +244,17 @@ const Test: React.FC = () => {
     );
   }
 
+  if (!currentQ) {
+    return (
+      <div className="page test-page">
+        <div className="loading-state">
+          <div className="loading-emoji">📝</div>
+          <div>加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page test-page">
       {/* Header */}
@@ -203,7 +269,9 @@ const Test: React.FC = () => {
         <div className="test-timer">
           ⏱️ {timeLeft}s
         </div>
-        <div className="test-progress-text">✓ {answers.filter((a) => a.correct).length + (isCorrect ? 1 : 0)}/{currentIdx + 1}</div>
+        <div className="test-progress-text">
+          ✓ {answers.filter((a) => a.correct).length + (isCorrect ? 1 : 0)}/{currentIdx + 1}
+        </div>
       </div>
 
       <div className="page-content test-content">

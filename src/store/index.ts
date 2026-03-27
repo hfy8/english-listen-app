@@ -23,6 +23,9 @@ interface AppState {
   currentLevel: LevelId | null;
   currentTheme: ThemeId | null;
 
+  // Pending practice params (survives location.state loss on Android WebView)
+  pendingPracticeParams: { words: Word[]; level: LevelId; theme: ThemeId } | null;
+
   // UI state
   toasts: { id: string; message: string; type: 'success' | 'error' | 'info' }[];
 
@@ -55,6 +58,10 @@ interface AppState {
   setCurrentLevel: (level: LevelId | null) => void;
   setCurrentTheme: (theme: ThemeId | null) => void;
 
+  // Actions - Practice params (backup when location.state is lost)
+  setPendingPracticeParams: (params: { words: Word[]; level: LevelId; theme: ThemeId } | null) => void;
+  clearPendingPracticeParams: () => void;
+
   // Actions - Toast
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   removeToast: (id: string) => void;
@@ -68,6 +75,7 @@ export const useStore = create<AppState>((set, get) => ({
   session: null,
   currentLevel: null,
   currentTheme: null,
+  pendingPracticeParams: null,
   toasts: [],
 
   updateProfile: (partial) => {
@@ -234,6 +242,9 @@ export const useStore = create<AppState>((set, get) => ({
 
   setCurrentLevel: (level) => set({ currentLevel: level }),
   setCurrentTheme: (theme) => set({ currentTheme: theme }),
+
+  setPendingPracticeParams: (params) => set({ pendingPracticeParams: params }),
+  clearPendingPracticeParams: () => set({ pendingPracticeParams: null }),
 
   showToast: (message, type = 'info') => {
     const id = Date.now().toString();

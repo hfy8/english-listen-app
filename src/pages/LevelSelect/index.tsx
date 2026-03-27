@@ -8,7 +8,7 @@ import './LevelSelect.css';
 
 const LevelSelect: React.FC = () => {
   const navigate = useNavigate();
-  const { progress } = useStore();
+  const { progress, setPendingPracticeParams } = useStore();
   const [selectedLevel, setSelectedLevel] = React.useState<LevelId | null>(null);
 
   const themes = selectedLevel ? getThemesByLevel(selectedLevel) : [];
@@ -19,6 +19,8 @@ const LevelSelect: React.FC = () => {
 
   const handleThemeSelect = (theme: ThemeId) => {
     const words = getWordsByLevelAndTheme(selectedLevel!, theme);
+    // Store in Zustand as backup (survives location.state loss on Android WebView)
+    setPendingPracticeParams({ words, level: selectedLevel!, theme });
     navigate('/practice', { state: { words, level: selectedLevel, theme } });
   };
 
