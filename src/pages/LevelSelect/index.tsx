@@ -19,9 +19,19 @@ const LevelSelect: React.FC = () => {
 
   const handleThemeSelect = (theme: ThemeId) => {
     const words = getWordsByLevelAndTheme(selectedLevel!, theme);
-    // Store in Zustand as backup (survives location.state loss on Android WebView)
-    setPendingPracticeParams({ words, level: selectedLevel!, theme });
-    navigate('/practice', { state: { words, level: selectedLevel, theme } });
+    const params = { words, level: selectedLevel!, theme };
+
+    // Write to sessionStorage BEFORE navigation (synchronous, survives WebView state loss)
+    try {
+      sessionStorage.setItem('__pw_params__', JSON.stringify(params));
+      sessionStorage.setItem('__pw_words__', JSON.stringify(words));
+    } catch (e) {
+      console.warn('[LevelSelect] sessionStorage write failed:', e);
+    }
+
+    // Zustand backup
+    setPendingPracticeParams(params);
+    navigate('/practice', { state: params });
   };
 
   const levelCompletion = (levelId: LevelId) => {

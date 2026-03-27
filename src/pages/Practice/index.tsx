@@ -9,7 +9,21 @@ import LetterKeyboard from '../../components/common/LetterKeyboard';
 import FeedbackModal from '../../components/common/FeedbackModal';
 import './Practice.css';
 
-const SESSION_KEY = '__practice_words__';
+// Keys for sessionStorage (synchronous, survives WebView state loss)
+const PRACTICE_PARAMS_KEY = '__pw_params__';
+
+interface PracticeParams {
+  words: Word[];
+  level: LevelId;
+  theme: ThemeId;
+}
+
+function getStoredParams(): PracticeParams | null {
+  try {
+    const raw = sessionStorage.getItem(PRACTICE_PARAMS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
 
 const Practice: React.FC = () => {
   const navigate = useNavigate();
@@ -30,43 +44,56 @@ const Practice: React.FC = () => {
     clearPendingPracticeParams,
   } = useStore();
 
+  const [isReady, setIsReady] = useState(false);
+  const [params, setParams] = useState<PracticeParams | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
-  const inputKey = useRef(0); // increment to force re-render answer slots
+  const inputKey = useRef(0);
 
-  // 1. Get words from location.state OR sessionStorage (双保险)
-  const locationState = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
-  const sessionWords = session?.words ?? [];
-  const allWords: Word[] = locationState?.words?.length ? locationState.words : sessionWords;
-
-  // 2. Initialize session - runs on every mount to handle back navigation
+  // Initialize on mount - use sessionStorage as primary source (not Zustand)
   useEffect(() => {
-    if (locationState?.words?.length) {
-      // Primary: words from location.state (set by LevelSelect)
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(locationState));
-      startSession(locationState.words);
-    } else if (allWords.length && !session) {
-      // Fallback: session ended but user refreshed - restore from sessionStorage
-      try {
-        const saved = sessionStorage.getItem(SESSION_KEY);
-        if (saved) {
-          const parsed = JSON.parse(saved) as { words: Word[]; level: LevelId; theme: ThemeId };
-          startSession(parsed.words);
-        }
-      } catch {
-        // ignore parse errors
-      }
-    } else if (!session && !allWords.length) {
-      // No words at all - redirect
-      navigate('/levels');
-    }
-  }, []); // Empty deps = runs on every mount
+    let mounted = true;
 
-  // 3. Wait for session
-  if (!session || session.words.length === 0) {
+    // Read params from location.state first, then sessionStorage fallback
+    const locState = location.state as PracticeParams | null;
+    const storedParams = getStoredParams();
+
+    let resolvedParams: PracticeParams | null = null;
+    let resolvedWords: Word[] = [];
+
+    if (locState?.words?.length) {
+      resolvedParams = locState;
+      resolvedWords = locState.words;
+    } else if (storedParams?.words?.length) {
+      resolvedParams = storedParams;
+      resolvedWords = storedParams.words;
+    }
+
+    if (!resolvedParams || !resolvedWords.length) {
+      // No words - redirect
+      if (mounted) navigate('/levels');
+      return;
+    }
+
+    // Store synchronously for future mounts
+    sessionStorage.setItem(PRACTICE_PARAMS_KEY, JSON.stringify(resolvedParams));
+
+    // Start session in store
+    startSession(resolvedWords);
+
+    if (mounted) {
+      setParams(resolvedParams);
+      setIsReady(true);
+    }
+
+    return () => { mounted = false; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wait for session to be ready
+  if (!isReady || !session || session.words.length === 0) {
     return (
       <div className="page practice-page">
         <div className="loading-state">
@@ -78,16 +105,10 @@ const Practice: React.FC = () => {
   }
 
   const currentWord: Word = session.words[session.currentIndex];
-  const params = locationState || (() => {
-    try {
-      const saved = sessionStorage.getItem(SESSION_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  })();
   const levelInfo = params ? getLevelInfo(params.level) : null;
   const themeInfo = getWrongTheme(currentWord.theme);
 
-  // Auto-play when new word appears
+  // Auto-play on new word
   useEffect(() => {
     if (!answered) {
       const timer = setTimeout(() => speak(currentWord.word), 300);
@@ -165,11 +186,23 @@ const Practice: React.FC = () => {
   const current = session.currentIndex + 1;
   const progressPct = total > 0 ? (current / total) * 100 : 0;
 
+  const handleBack = () => {
+    sessionStorage.removeItem(PRACTICE_PARAMS_KEY);
+    clearPendingPracticeParams();
+    navigate('/levels');
+  };
+
+  const handleFinish = () => {
+    sessionStorage.removeItem(PRACTICE_PARAMS_KEY);
+    clearPendingPracticeParams();
+    navigate('/');
+  };
+
   return (
     <div className="page practice-page">
       {/* Header */}
       <div className="header-bar safe-top practice-header">
-        <button className="header-back" onClick={() => { clearPendingPracticeParams(); navigate('/levels'); }}>← 返回</button>
+        <button className="header-back" onClick={handleBack}>← 返回</button>
         <div className="header-title">
           {levelInfo?.name} · {themeInfo?.emoji} {themeInfo?.name}
         </div>
@@ -210,7 +243,7 @@ const Practice: React.FC = () => {
           <div className="phonetic-hint">{currentWord.phonetic}</div>
         )}
 
-        {/* Answer slots — key forces re-render on input change */}
+        {/* Answer slots */}
         <div className="answer-slot" key={inputKey.current}>
           {currentWord.word.split('').map((_, idx) => (
             <div
@@ -269,10 +302,7 @@ const Practice: React.FC = () => {
               <motion.div
                 key={i}
                 className="star-particle"
-                style={{
-                  left: `${20 + (i * 8)}%`,
-                  top: `${30 + (i % 3) * 10}%`,
-                }}
+                style={{ left: `${20 + (i * 8)}%`, top: `${30 + (i % 3) * 10}%` }}
                 initial={{ opacity: 0, y: 0 }}
                 animate={{ opacity: [0, 1, 0], y: -80, rotate: i * 45 }}
                 exit={{ opacity: 0 }}
@@ -288,12 +318,7 @@ const Practice: React.FC = () => {
       {/* Session finished */}
       <AnimatePresence>
         {session.isFinished && !showFeedback && (
-          <motion.div
-            className="modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div
               className="modal-box"
               initial={{ scale: 0.5 }}
@@ -317,11 +342,7 @@ const Practice: React.FC = () => {
                   <div className="stat-label">答错</div>
                 </div>
               </div>
-              <button
-                className="btn btn-primary btn-full"
-                style={{ marginTop: 'var(--space-lg)' }}
-                onClick={() => { sessionStorage.removeItem(SESSION_KEY); clearPendingPracticeParams(); navigate('/'); }}
-              >
+              <button className="btn btn-primary btn-full" style={{ marginTop: 'var(--space-lg)' }} onClick={handleFinish}>
                 返回首页
               </button>
             </motion.div>
