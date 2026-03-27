@@ -65,15 +65,24 @@ const Practice: React.FC = () => {
     let resolvedWords: Word[] = [];
 
     if (locState?.words?.length) {
+      console.log('[Practice] Using location.state words:', locState.words.length);
       resolvedParams = locState;
       resolvedWords = locState.words;
     } else if (storedParams?.words?.length) {
+      console.log('[Practice] Using sessionStorage words:', storedParams.words.length);
       resolvedParams = storedParams;
       resolvedWords = storedParams.words;
+    } else {
+      console.log('[Practice] location.state and sessionStorage both empty, session:', session?.words?.length);
+      if (session?.words?.length) {
+        resolvedParams = storedParams || null;
+        resolvedWords = session.words;
+      }
     }
 
     if (!resolvedParams || !resolvedWords.length) {
       // No words - redirect
+      console.log('[Practice] No words found, redirecting to /levels');
       if (mounted) navigate('/levels');
       return;
     }
@@ -82,11 +91,13 @@ const Practice: React.FC = () => {
     sessionStorage.setItem(PRACTICE_PARAMS_KEY, JSON.stringify(resolvedParams));
 
     // Start session in store
+    console.log('[Practice] Starting session with', resolvedWords.length, 'words, first word:', resolvedWords[0]?.word);
     startSession(resolvedWords);
 
     if (mounted) {
       setParams(resolvedParams);
       setIsReady(true);
+      console.log('[Practice] isReady=true');
     }
 
     return () => { mounted = false; };
