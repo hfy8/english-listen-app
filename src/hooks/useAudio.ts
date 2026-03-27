@@ -4,33 +4,36 @@ import { useStore } from '../store';
 export function useAudio() {
   const { settings } = useStore();
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
-  const speakingRef = useRef(false);
 
-  // Load voices - must wait for onvoiceschanged on first load
+  // Load English voices - must handle async loading across browsers
   useEffect(() => {
     const loadVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      voicesRef.current = voices.filter(
-        (v) => v.lang.startsWith('en')
-      );
+      if (!('speechSynthesis' in window)) return;
+      const allVoices = window.speechSynthesis.getVoices();
+      voicesRef.current = allVoices.filter((v) => v.lang.startsWith('en'));
     };
 
-    // getVoices() is synchronous after voices are loaded
+    // Try immediately
     loadVoices();
 
-    // Some browsers require waiting for voiceschanged event
+    // Some browsers (Chrome desktop/Android) load voices asynchronously
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = () => {
         loadVoices();
       };
     }
 
-    // Fallback: try again after a short delay in case voices weren't ready
-    const timer = setTimeout(() => {
+    // Fallback: poll for up to 3s
+    let attempts = 0;
+    const interval = setInterval(() => {
       loadVoices();
+      attempts++;
+      if (voicesRef.current.length > 0 || attempts >= 6) {
+        clearInterval(interval);
+      }
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, []);
 
   const speak = useCallback(
@@ -40,33 +43,28 @@ export function useAudio() {
         return;
       }
 
-      try {
-        // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
+      // Cancel any pending speech
+      window.speechSynthesis.cancel();
 
-        const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = 'en-US';
-        utterance.rate = settings.ttsSpeed;
-        utterance.pitch = 1.1;
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = 'en-US';
+      utterance.rate = settings.ttsSpeed;
+      utterance.pitch = 1.1;
 
-        // Try to find a good English voice from cached list
-        const enVoice = voicesRef.current.find(
-          (v) => v.lang === 'en-US' || v.lang === 'en-GB'
-        ) || voicesRef.current.find((v) => v.lang.startsWith('en'));
+      // Try to use a cached English voice; fall back to any available voice
+      const cachedVoice = voicesRef.current.find(
+        (v) => v.lang === 'en-US' || v.lang === 'en-GB'
+      ) || voicesRef.current[0];
 
-        if (enVoice) {
-          utterance.voice = enVoice;
-        }
-
-        utterance.onerror = (e) => {
-          console.warn('[useAudio] TTS error:', e.error);
-        };
-
-        window.speechSynthesis.speak(utterance);
-        speakingRef.current = true;
-      } catch (err) {
-        console.warn('[useAudio] speak() failed:', err);
+      if (cachedVoice) {
+        utterance.voice = cachedVoice;
       }
+
+      utterance.onerror = (e) => {
+        console.warn('[useAudio] TTS error:', e.error);
+      };
+
+      window.speechSynthesis.speak(utterance);
     },
     [settings.ttsSpeed]
   );
@@ -74,7 +72,6 @@ export function useAudio() {
   const stop = useCallback(() => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      speakingRef.current = false;
     }
   }, []);
 

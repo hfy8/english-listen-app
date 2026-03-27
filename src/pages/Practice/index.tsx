@@ -32,17 +32,24 @@ const Practice: React.FC = () => {
   const [answered, setAnswered] = useState(false);
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
+  const initializedRef = useRef(false);
 
   const state = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
 
+  // Initialize session once when page loads
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     if (state?.words && state.words.length > 0) {
       startSession(state.words);
     } else {
+      // No words provided - redirect back to level select
       navigate('/levels');
     }
   }, [state?.words, startSession, navigate]);
 
+  // Guard: wait for session to be ready
   if (!session || session.words.length === 0) {
     return (
       <div className="page practice-page">
@@ -58,21 +65,19 @@ const Practice: React.FC = () => {
   const levelInfo = state?.level ? getLevelInfo(state.level) : null;
   const themeInfo = getWrongTheme(currentWord.theme);
 
-  // Auto-play on new word
+  // Auto-play when a new word appears
   useEffect(() => {
     if (!answered) {
       const timer = setTimeout(() => speak(currentWord.word), 300);
       return () => clearTimeout(timer);
     }
-  }, [session?.currentIndex, answered, currentWord.word]);
+  }, [session.currentIndex, answered, currentWord.word, speak]);
 
   const handleKeyPress = useCallback(
     (letter: string) => {
       if (answered) return;
       if (inputRef.current.length >= currentWord.word.length) return;
-
-      const newInput = [...inputRef.current, letter.toUpperCase()];
-      inputRef.current = newInput;
+      inputRef.current = [...inputRef.current, letter.toUpperCase()];
     },
     [answered, currentWord.word]
   );
@@ -131,20 +136,9 @@ const Practice: React.FC = () => {
     handleNext();
   }, [answered, handleNext]);
 
-  if (!session || session.words.length === 0) {
-    return (
-      <div className="page practice-page">
-        <div className="loading-state">
-          <div className="loading-emoji">⭐</div>
-          <div>加载中...</div>
-        </div>
-      </div>
-    );
-  }
-
   const total = session.words.length;
   const current = session.currentIndex + 1;
-  const progressPct = (current / total) * 100;
+  const progressPct = total > 0 ? (current / total) * 100 : 0;
 
   return (
     <div className="page practice-page">
@@ -252,12 +246,11 @@ const Practice: React.FC = () => {
                 key={i}
                 className="star-particle"
                 style={{
-                  left: `${20 + Math.random() * 60}%`,
-                  top: `${30 + Math.random() * 30}%`,
-                  animationDelay: `${i * 0.1}s`,
+                  left: `${20 + (i * 8)}%`,
+                  top: `${30 + (i % 3) * 10}%`,
                 }}
                 initial={{ opacity: 0, y: 0 }}
-                animate={{ opacity: [0, 1, 0], y: -80, rotate: Math.random() * 360 }}
+                animate={{ opacity: [0, 1, 0], y: -80, rotate: i * 45 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8, delay: i * 0.05 }}
               >
@@ -268,7 +261,7 @@ const Practice: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Session finished */}
+      {/* Session finished overlay */}
       <AnimatePresence>
         {session.isFinished && !showFeedback && (
           <motion.div
@@ -281,7 +274,7 @@ const Practice: React.FC = () => {
               className="modal-box"
               initial={{ scale: 0.5 }}
               animate={{ scale: 1 }}
-              transition={{ type: 'spring' }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             >
               <div className="modal-icon">🏆</div>
               <div className="modal-title">太棒了！</div>
