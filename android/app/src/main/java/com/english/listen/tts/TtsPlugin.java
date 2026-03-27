@@ -59,11 +59,11 @@ public class TtsPlugin extends Plugin {
             return;
         }
 
-        float rate = (float) call.getDouble("rate", 1.0);
-        float pitch = (float) call.getDouble("pitch", 1.0);
+        double rate = call.getDouble("rate", 1.0);
+        double pitch = call.getDouble("pitch", 1.0);
 
-        tts.setSpeechRate(rate);
-        tts.setPitch(pitch);
+        tts.setSpeechRate((float) rate);
+        tts.setPitch((float) pitch);
 
         String utteranceId = UUID.randomUUID().toString();
 
