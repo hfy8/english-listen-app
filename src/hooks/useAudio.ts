@@ -1,7 +1,27 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 
-const TTS_INIT_TIMEOUT = 6000; // ms to wait for TTS engine to init
+// Try to import Capacitor TTS plugin
+// Note: In Capacitor app, plugin is available via window.Capacitor.Plugins
+declare global {
+  interface Window {
+    Capacitor?: {
+      Plugins?: Record<string, any>;
+    };
+  }
+}
+
+let nativeTts: { speak: (opts: any) => Promise<void>; stop: () => Promise<void> } | null = null;
+
+// Initialize native TTS when Capacitor is ready
+if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.Tts) {
+  nativeTts = (window as any).Capacitor.Plugins.Tts;
+  console.log('[useAudio] Native TTS plugin found');
+} else {
+  console.log('[useAudio] Native TTS not available, using Web Speech API');
+}
+
+const TTS_INIT_TIMEOUT = 6000;
 
 export function useAudio() {
   const { settings } = useStore();
@@ -27,7 +47,6 @@ export function useAudio() {
     if (typeof tts.onvoiceschanged !== 'undefined') {
       tts.onvoiceschanged = () => {
         loadVoices();
-        // Flush queued speak calls once voices are ready
         if (!readyRef.current && voicesRef.current.length > 0) {
           readyRef.current = true;
           speakQueueRef.current.forEach((fn) => fn());
@@ -48,7 +67,6 @@ export function useAudio() {
         speakQueueRef.current = [];
       } else if (elapsed >= TTS_INIT_TIMEOUT) {
         clearInterval(poll);
-        // Give up waiting — still allow speak attempts (system TTS may work without explicit voices)
         readyRef.current = true;
       }
     }, 200);
@@ -60,7 +78,25 @@ export function useAudio() {
   }, []);
 
   const speak = useCallback(
-    (word: string) => {
+    async (word: string) => {
+      // Try native TTS first (Capacitor plugin)
+      if (nativeTts) {
+        try {
+          await nativeTts.stop();
+          await nativeTts.speak({
+            text: word,
+            rate: Math.max(0.5, Math.min(1.5, settings.ttsSpeed)),
+            pitch: 1.1,
+            volume: 1.0,
+          });
+          console.log('[useAudio] Native TTS:', word);
+          return;
+        } catch (e) {
+          console.warn('[useAudio] Native TTS failed, trying Web Speech:', e);
+        }
+      }
+
+      // Fall back to Web Speech API
       if (!('speechSynthesis' in window)) {
         console.warn('[useAudio] speechSynthesis not available');
         return;
@@ -75,7 +111,6 @@ export function useAudio() {
         utterance.pitch = 1.1;
         utterance.volume = 1.0;
 
-        // Select best available English voice
         const voices = voicesRef.current;
         const preferredVoice =
           voices.find((v) => v.lang === 'en-US') ||
@@ -92,7 +127,6 @@ export function useAudio() {
         utterance.onerror = (_e) => {
           if (didError) return;
           didError = true;
-          // Android WebView: retry once after a short delay
           setTimeout(() => {
             window.speechSynthesis.cancel();
             const retry = new SpeechSynthesisUtterance(word);
@@ -112,7 +146,16 @@ export function useAudio() {
     [settings.ttsSpeed]
   );
 
-  const stop = useCallback(() => {
+  const stop = useCallback(async () => {
+    // Stop native TTS first
+    if (nativeTts) {
+      try {
+        await nativeTts.stop();
+      } catch (e) {
+        // ignore
+      }
+    }
+    // Stop Web Speech API
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
