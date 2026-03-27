@@ -1,6 +1,6 @@
 /**
  * Capacitor TTS Plugin bridge
- * Uses native Android TextToSpeech when available, falls back to Web Speech API.
+ * Tries native Android TextToSpeech first, falls back to Web Speech API.
  */
 
 import { registerPlugin } from '@capacitor/core';
@@ -11,30 +11,60 @@ interface TtsPlugin {
   isSpeaking(): Promise<{ value: boolean }>;
 }
 
-const TtsNative = registerPlugin<TtsPlugin>('Tts');
+let TtsNative: TtsPlugin | null = null;
+let ttsInitAttempted = false;
+
+function getNativePlugin(): TtsPlugin | null {
+  if (ttsInitAttempted) return TtsNative;
+  ttsInitAttempted = true;
+  try {
+    TtsNative = registerPlugin<TtsPlugin>('Tts');
+  } catch (e) {
+    // Plugin not registered - will use Web Speech API only
+    console.warn('[Tts] Native plugin not found:', e);
+  }
+  return TtsNative;
+}
 
 export async function nativeSpeak(
   text: string,
   rate: number = 1.0,
   pitch: number = 1.1
 ): Promise<void> {
-  if (!TtsNative) {
-    return fallbackSpeak(text, rate, pitch);
+  const plugin = getNativePlugin();
+
+  if (plugin) {
+    try {
+      await plugin.speak({ text, rate, pitch });
+      return; // Success via native
+    } catch (err: any) {
+      const code = err?.code || '';
+      const msg = err?.message || String(err);
+
+      // NOT_READY means TTS engine not yet init — retry once after delay
+      if (code === 'NOT_READY' || msg.includes('not ready')) {
+        console.warn('[Tts] Native TTS not ready, retrying...');
+        await new Promise((r) => setTimeout(r, 500));
+        try {
+          await plugin.speak({ text, rate, pitch });
+          return;
+        } catch (retryErr) {
+          console.warn('[Tts] Native TTS retry failed, falling back:', retryErr);
+        }
+      } else {
+        console.warn('[Tts] Native TTS error, falling back:', msg);
+      }
+    }
   }
 
-  try {
-    await TtsNative.speak({ text, rate, pitch });
-  } catch (err) {
-    console.warn('[Tts] Native TTS failed, using fallback:', err);
-    await fallbackSpeak(text, rate, pitch);
-  }
+  // Fallback to Web Speech API
+  await fallbackSpeak(text, rate, pitch);
 }
 
 export function nativeStop(): void {
-  if (TtsNative) {
-    TtsNative.stop().catch(() => {
-      fallbackStop();
-    });
+  const plugin = getNativePlugin();
+  if (plugin) {
+    plugin.stop().catch(() => fallbackStop());
   } else {
     fallbackStop();
   }
@@ -42,7 +72,7 @@ export function nativeStop(): void {
 
 async function fallbackSpeak(text: string, rate: number, pitch: number): Promise<void> {
   if (!('speechSynthesis' in window)) {
-    throw new Error('No TTS available');
+    throw new Error('No TTS available on this device');
   }
 
   return new Promise((resolve, reject) => {

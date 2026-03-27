@@ -13,13 +13,17 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(name = "Tts")
 public class TtsPlugin extends Plugin {
 
     private TextToSpeech tts;
-    private boolean isInitialized = false;
+    private boolean ttsReady = false;
     private static final String TAG = "TtsPlugin";
+    private static final int INIT_TIMEOUT_SEC = 5;
 
     @Override
     public void load() {
@@ -28,28 +32,43 @@ public class TtsPlugin extends Plugin {
     }
 
     private void initTts() {
-        tts = new TextToSpeech(getContext(), new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status) {
-                if (status == TextToSpeech.SUCCESS) {
-                    int result = tts.setLanguage(Locale.US);
-                    if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        Log.e(TAG, "English language not supported");
-                    } else {
-                        isInitialized = true;
-                        Log.d(TAG, "TTS initialized");
-                    }
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        tts = new TextToSpeech(getContext(), status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                int result = tts.setLanguage(Locale.US);
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.w(TAG, "English language not available on this device");
                 } else {
-                    Log.e(TAG, "TTS init failed: " + status);
+                    ttsReady = true;
+                    Log.d(TAG, "TTS ready");
                 }
+            } else {
+                Log.e(TAG, "TTS init failed: " + status);
             }
+            latch.countDown();
         });
+
+        // Wait for init (with timeout)
+        try {
+            if (!latch.await(INIT_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+                Log.w(TAG, "TTS init timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @PluginMethod
     public void speak(PluginCall call) {
-        if (!isInitialized) {
-            call.reject("TTS not initialized", "NOT_READY");
+        // Wait for TTS to be ready (up to 3s)
+        if (!ttsReady) {
+            // Try to init synchronously as last resort
+            if (tts == null) {
+                call.reject("TTS not available", "UNAVAILABLE");
+                return;
+            }
+            call.reject("TTS not ready, please try again", "NOT_READY");
             return;
         }
 

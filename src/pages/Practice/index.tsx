@@ -9,6 +9,8 @@ import LetterKeyboard from '../../components/common/LetterKeyboard';
 import FeedbackModal from '../../components/common/FeedbackModal';
 import './Practice.css';
 
+const SESSION_KEY = '__practice_words__';
+
 const Practice: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,10 +27,7 @@ const Practice: React.FC = () => {
     addSticker,
     showToast,
     settings,
-    pendingPracticeParams,
-    setPendingPracticeParams,
     clearPendingPracticeParams,
-    restorePendingPracticeParams,
   } = useStore();
 
   const [showFeedback, setShowFeedback] = useState(false);
@@ -36,34 +35,37 @@ const Practice: React.FC = () => {
   const [answered, setAnswered] = useState(false);
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
-  const initializedRef = useRef(false);
+  const inputKey = useRef(0); // increment to force re-render answer slots
 
-  // Determine params: prefer location.state, fall back to store, then localStorage
-  const state = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
-  const params = state?.words?.length ? state : pendingPracticeParams;
+  // 1. Get words from location.state OR sessionStorage (双保险)
+  const locationState = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
+  const sessionWords = session?.words ?? [];
+  const allWords: Word[] = locationState?.words?.length ? locationState.words : sessionWords;
 
+  // 2. Initialize session - runs on every mount to handle back navigation
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    if (params?.words && params.words.length > 0) {
-      // Store in Zustand + localStorage (survives location.state loss on Android WebView)
-      setPendingPracticeParams({ words: params.words, level: params.level, theme: params.theme });
-      startSession(params.words);
-    } else if (session?.words?.length) {
-      // Session already exists — no need to re-init
-    } else {
-      // WebView was recreated: try to restore from localStorage
-      const restored = restorePendingPracticeParams();
-      if (restored?.words?.length) {
-        startSession(restored.words);
-      } else {
-        navigate('/levels');
+    if (locationState?.words?.length) {
+      // Primary: words from location.state (set by LevelSelect)
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(locationState));
+      startSession(locationState.words);
+    } else if (allWords.length && !session) {
+      // Fallback: session ended but user refreshed - restore from sessionStorage
+      try {
+        const saved = sessionStorage.getItem(SESSION_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved) as { words: Word[]; level: LevelId; theme: ThemeId };
+          startSession(parsed.words);
+        }
+      } catch {
+        // ignore parse errors
       }
+    } else if (!session && !allWords.length) {
+      // No words at all - redirect
+      navigate('/levels');
     }
-  }, []);
+  }, []); // Empty deps = runs on every mount
 
-  // Wait for session to be ready
+  // 3. Wait for session
   if (!session || session.words.length === 0) {
     return (
       <div className="page practice-page">
@@ -76,7 +78,13 @@ const Practice: React.FC = () => {
   }
 
   const currentWord: Word = session.words[session.currentIndex];
-  const levelInfo = params?.level ? getLevelInfo(params.level) : null;
+  const params = locationState || (() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  })();
+  const levelInfo = params ? getLevelInfo(params.level) : null;
   const themeInfo = getWrongTheme(currentWord.theme);
 
   // Auto-play when new word appears
@@ -92,6 +100,7 @@ const Practice: React.FC = () => {
       if (answered) return;
       if (inputRef.current.length >= currentWord.word.length) return;
       inputRef.current = [...inputRef.current, letter.toUpperCase()];
+      inputKey.current += 1;
     },
     [answered, currentWord.word]
   );
@@ -99,6 +108,7 @@ const Practice: React.FC = () => {
   const handleDelete = useCallback(() => {
     if (answered) return;
     inputRef.current = inputRef.current.slice(0, -1);
+    inputKey.current += 1;
   }, [answered]);
 
   const handleConfirm = useCallback(() => {
@@ -141,6 +151,7 @@ const Practice: React.FC = () => {
     setShowFeedback(false);
     setAnswered(false);
     inputRef.current = [];
+    inputKey.current += 1;
     setStickersEarned([]);
     nextWord();
   }, [nextWord]);
@@ -194,13 +205,13 @@ const Practice: React.FC = () => {
           {currentWord.chinese}
         </div>
 
-        {/* Phonetic (optional) */}
+        {/* Phonetic */}
         {settings.showPhonetic && (
           <div className="phonetic-hint">{currentWord.phonetic}</div>
         )}
 
-        {/* Answer slots */}
-        <div className="answer-slot">
+        {/* Answer slots — key forces re-render on input change */}
+        <div className="answer-slot" key={inputKey.current}>
           {currentWord.word.split('').map((_, idx) => (
             <div
               key={idx}
@@ -238,7 +249,6 @@ const Practice: React.FC = () => {
         />
       </div>
 
-      {/* Skip hint */}
       <div className="skip-hint">点击右上角「跳过」可跳过不认识的词</div>
 
       {/* Feedback Modal */}
@@ -251,7 +261,7 @@ const Practice: React.FC = () => {
         points={10}
       />
 
-      {/* Confetti for correct */}
+      {/* Confetti */}
       <AnimatePresence>
         {showFeedback && isCorrect && stickersEarned.length === 0 && (
           <div className="stars-bg">
@@ -275,7 +285,7 @@ const Practice: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Session finished overlay */}
+      {/* Session finished */}
       <AnimatePresence>
         {session.isFinished && !showFeedback && (
           <motion.div
@@ -310,7 +320,7 @@ const Practice: React.FC = () => {
               <button
                 className="btn btn-primary btn-full"
                 style={{ marginTop: 'var(--space-lg)' }}
-                onClick={() => { clearPendingPracticeParams(); navigate('/'); }}
+                onClick={() => { sessionStorage.removeItem(SESSION_KEY); clearPendingPracticeParams(); navigate('/'); }}
               >
                 返回首页
               </button>
