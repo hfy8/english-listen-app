@@ -69,6 +69,7 @@ const Practice: React.FC = () => {
     console.log('[Practice] Init:', {
       locationStateWords: locState?.words?.length,
       storedParamsWords: storedParams?.words?.length,
+      sessionWords: session?.words?.length,
     });
 
     if (locState?.words?.length) {
@@ -82,8 +83,18 @@ const Practice: React.FC = () => {
       console.log('[Practice] Source: existing session, words:', session.words.length);
     } else {
       console.log('[Practice] No words found, redirecting...');
-      navigate('/levels');
+      // 强制重定向，延迟 100ms 确保 navigate 执行
+      setTimeout(() => navigate('/levels'), 100);
     }
+
+    // 容错：如果 2 秒后还是没有 sessionWords，强制跳转
+    const timer = setTimeout(() => {
+      if (!session?.words?.length) {
+        console.log('[Practice] Timeout, forcing redirect');
+        navigate('/levels');
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   // 依赖 deps 固定，hooks 调用顺序永远不会变 ───────────────────────────────
