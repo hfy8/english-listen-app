@@ -9,6 +9,7 @@ import Test from './pages/Test';
 import WrongNotes from './pages/WrongNotes';
 import Rewards from './pages/Rewards';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import './index.css';
 
 const App: React.FC = () => {
@@ -22,6 +23,7 @@ const App: React.FC = () => {
         <Route path="/wrong" element={<WrongNotes />} />
         <Route path="/rewards" element={<Rewards />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
       <BottomNav />
       <ToastContainer />

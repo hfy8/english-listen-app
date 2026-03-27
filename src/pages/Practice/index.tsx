@@ -36,12 +36,12 @@ const Practice: React.FC = () => {
   const state = location.state as { words: Word[]; level: LevelId; theme: ThemeId } | null;
 
   useEffect(() => {
-    if (state?.words) {
+    if (state?.words && state.words.length > 0) {
       startSession(state.words);
     } else {
       navigate('/levels');
     }
-  }, []);
+  }, [state?.words, startSession, navigate]);
 
   const currentWord = session?.words[session.currentIndex];
   const levelInfo = state?.level ? getLevelInfo(state.level) : null;

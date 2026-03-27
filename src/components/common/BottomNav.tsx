@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { path: '/test', icon: '🎮', label: '测试' },
   { path: '/rewards', icon: '🎁', label: '奖励' },
   { path: '/profile', icon: '👤', label: '我的' },
+  { path: '/settings', icon: '⚙️', label: '设置' },
 ];
 
 export const BottomNav: React.FC = () => {

@@ -1,8 +1,24 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
 
 export function useAudio() {
   const { settings } = useStore();
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+
+  // Load voices and keep them cached
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      voicesRef.current = voices.filter(
+        (v) => v.lang.startsWith('en') && (v.lang === 'en-US' || v.lang === 'en-GB' || v.lang === 'en')
+      );
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   const speak = useCallback(
     (word: string) => {
@@ -16,11 +32,10 @@ export function useAudio() {
       utterance.rate = settings.ttsSpeed;
       utterance.pitch = 1.1;
 
-      // Try to get a good English voice
-      const voices = window.speechSynthesis.getVoices();
-      const enVoice = voices.find(
-        (v) => v.lang.startsWith('en') && (v.lang === 'en-US' || v.lang === 'en-GB')
-      );
+      // Use cached voices (loaded async)
+      const enVoice = voicesRef.current.find(
+        (v) => v.lang === 'en-US' || v.lang === 'en-GB'
+      ) || voicesRef.current[0];
       if (enVoice) utterance.voice = enVoice;
 
       window.speechSynthesis.speak(utterance);
@@ -36,8 +51,6 @@ export function useAudio() {
 
   const playSuccess = useCallback(() => {
     if (!settings.sound) return;
-    // Use a pleasant success tone via Web Audio API if needed
-    // For now we rely on visual feedback
   }, [settings.sound]);
 
   return { speak, stop, playSuccess };

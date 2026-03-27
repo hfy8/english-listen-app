@@ -73,14 +73,14 @@ const Test: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!isFinished && !showFeedback) {
+    if (!isFinished && !showFeedback && currentQ) {
       startTimer();
-      if (currentQ?.type === 'spell') {
+      if (currentQ.type === 'spell') {
         speak(currentQ.word.word);
       }
     }
     return clearTimer;
-  }, [currentIdx, isFinished]);
+  }, [currentIdx, isFinished, showFeedback, currentQ, startTimer, speak]);
 
   const handleAnswer = useCallback((correct: boolean, userAnswer: string) => {
     clearTimer();
