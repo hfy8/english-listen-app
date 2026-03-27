@@ -43,27 +43,38 @@ const Practice: React.FC = () => {
     }
   }, [state?.words, startSession, navigate]);
 
-  const currentWord = session?.words[session.currentIndex];
+  if (!session || session.words.length === 0) {
+    return (
+      <div className="page practice-page">
+        <div className="loading-state">
+          <div className="loading-emoji">⭐</div>
+          <div>加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentWord: Word = session.words[session.currentIndex];
   const levelInfo = state?.level ? getLevelInfo(state.level) : null;
-  const themeInfo = currentWord ? getWrongTheme(currentWord.theme) : null;
+  const themeInfo = getWrongTheme(currentWord.theme);
 
   // Auto-play on new word
   useEffect(() => {
-    if (currentWord && !answered) {
+    if (!answered) {
       const timer = setTimeout(() => speak(currentWord.word), 300);
       return () => clearTimeout(timer);
     }
-  }, [session?.currentIndex, currentWord?.id]);
+  }, [session?.currentIndex, answered, currentWord.word]);
 
   const handleKeyPress = useCallback(
     (letter: string) => {
-      if (answered || !currentWord) return;
+      if (answered) return;
       if (inputRef.current.length >= currentWord.word.length) return;
 
       const newInput = [...inputRef.current, letter.toUpperCase()];
       inputRef.current = newInput;
     },
-    [answered, currentWord]
+    [answered, currentWord.word]
   );
 
   const handleDelete = useCallback(() => {
@@ -72,7 +83,7 @@ const Practice: React.FC = () => {
   }, [answered]);
 
   const handleConfirm = useCallback(() => {
-    if (answered || !currentWord || inputRef.current.length === 0) return;
+    if (answered || inputRef.current.length === 0) return;
 
     const answer = inputRef.current.join('').toLowerCase();
     const correct = answer === currentWord.word.toLowerCase();
@@ -84,9 +95,7 @@ const Practice: React.FC = () => {
     if (correct) {
       addPoints(10);
       addCompletedWord(currentWord.id);
-      // Reset wrong word if it's there
       removeWrongWord(currentWord.word);
-      // Random sticker
       const stickerChance = Math.random();
       if (stickerChance < 0.2) {
         const stickers = ['⭐', '🌟', '🔥', '💎', '🌈', '🎀'];
@@ -96,7 +105,6 @@ const Practice: React.FC = () => {
         showToast(`🎨 获得贴纸 ${sticker}！`, 'success');
       }
     } else {
-      // Add to wrong words
       addWrongWord({
         word: currentWord.word,
         chinese: currentWord.chinese,
@@ -123,7 +131,7 @@ const Practice: React.FC = () => {
     handleNext();
   }, [answered, handleNext]);
 
-  if (!session || !currentWord) {
+  if (!session || session.words.length === 0) {
     return (
       <div className="page practice-page">
         <div className="loading-state">

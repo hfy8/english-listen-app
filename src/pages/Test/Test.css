@@ -1,6 +1,16 @@
 .test-page {
   background: var(--background);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.test-page .page-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 .test-status-bar {
