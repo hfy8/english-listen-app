@@ -4,7 +4,6 @@
  */
 
 import { registerPlugin } from '@capacitor/core';
-import type { Plugin } from '@capacitor/core';
 
 interface TtsPlugin {
   speak(options: { text: string; rate?: number; pitch?: number }): Promise<{ value: boolean }>;
