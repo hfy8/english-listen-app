@@ -50,6 +50,7 @@
   justify-content: center;
   padding: var(--space-lg) var(--space-md);
   gap: var(--space-md);
+  min-height: 0; /* 防止内容为空时 flex 容器塌陷 */
 }
 
 .play-button {
@@ -113,6 +114,9 @@
 
 .practice-keyboard {
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .skip-hint {

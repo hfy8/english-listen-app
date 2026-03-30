@@ -56,7 +56,6 @@ const Practice: React.FC = () => {
   const initFlagRef = useRef(false);
 
   // 初始化 useEffect（initFlagRef 保证只运行一次）
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (initFlagRef.current) return;
     initFlagRef.current = true;
@@ -77,20 +76,11 @@ const Practice: React.FC = () => {
     } else if (storedParams?.words?.length) {
       console.log('[Practice] Source: sessionStorage, words:', storedParams.words.length);
       startSession(storedParams.words);
-    } else if (session?.words?.length) {
-      console.log('[Practice] Source: existing session, words:', session.words.length);
-    } else {
+    } else if (!session?.words?.length) {
+      // 只有真正没有任何 words 时才 redirect（避免 startSession 后 2 秒才读到的闭包 session=null 问题）
       console.log('[Practice] No words found, redirecting...');
-      setTimeout(() => navigate('/levels'), 100);
+      navigate('/levels');
     }
-
-    const timer = setTimeout(() => {
-      if (!session?.words?.length) {
-        console.log('[Practice] Timeout, forcing redirect');
-        navigate('/levels');
-      }
-    }, 2000);
-    return () => clearTimeout(timer);
   }, []);
 
   // 派生的中间变量（在 hooks 之后、early return 之前）
