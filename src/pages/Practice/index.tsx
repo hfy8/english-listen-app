@@ -289,7 +289,7 @@ const Practice: React.FC = () => {
           onKeyPress={handleKeyPress}
           onDelete={handleDelete}
           onConfirm={handleConfirm}
-          disabled={answered}
+          disabled={answered || showFeedback}
         />
       </div>
 
