@@ -58,7 +58,6 @@ const Practice: React.FC = () => {
   const initFlagRef = useRef(false);
 
   // 初始化：只在首次渲染时运行（类似 componentDidMount）
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (initFlagRef.current) return;
     initFlagRef.current = true;
@@ -95,7 +94,8 @@ const Practice: React.FC = () => {
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty: init runs once via initFlagRef
 
   // 依赖 deps 固定，hooks 调用顺序永远不会变 ───────────────────────────────
 
@@ -112,8 +112,6 @@ const Practice: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [session?.currentIndex, answered, currentWord?.word, speak]);
-
-  // ── 所有 hooks 调用完毕后才做 UI 条件渲染 ────────────────────────────────
 
   // Loading 状态：session 还没初始化
   if (!session?.words?.length) {
