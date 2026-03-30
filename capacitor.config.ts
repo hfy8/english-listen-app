@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: '英语听写',
   webDir: 'dist',
   plugins: {
-    Tts: {},
+    TextToSpeech: {},
   },
 };
 

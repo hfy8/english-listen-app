@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useStore } from '../store';
-import { nativeSpeak, nativeStop } from '../plugins/tts';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
 
 export function useAudio() {
   const { settings } = useStore();
   const readyRef = useRef(false);
 
-  // 初始化：等待原生 TTS 插件就绪
   useEffect(() => {
-    // 原生 TTS 插件在 Capacitor.Plugins.Tts 注册后即可使用
-    // 如果注册失败，后续 nativeSpeak 会走 fallback
     readyRef.current = true;
-    console.log('[useAudio] ready, ttsSpeed:', settings.ttsSpeed);
+    console.log('[useAudio] TextToSpeech ready, rate:', settings.ttsSpeed);
   }, []);
 
   const speak = useCallback(
@@ -20,15 +17,19 @@ export function useAudio() {
         console.warn('[useAudio] not ready, skip:', word);
         return;
       }
-      nativeSpeak(word, settings.ttsSpeed, 1.1).catch((e) =>
-        console.warn('[useAudio] speak error:', e)
-      );
+      TextToSpeech.speak({
+        text: word,
+        lang: 'en-US',
+        rate: settings.ttsSpeed,
+      }).catch((e: Error) => {
+        console.warn('[useAudio] speak error:', e?.message || String(e));
+      });
     },
     [settings.ttsSpeed]
   );
 
   const stop = useCallback(() => {
-    nativeStop();
+    TextToSpeech.stop().catch(() => {});
   }, []);
 
   return { speak, stop };
