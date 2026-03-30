@@ -46,18 +46,17 @@ const Practice: React.FC = () => {
     clearPendingPracticeParams,
   } = useStore();
 
-  // ── 所有 hooks 必须无条件调用 ──────────────────────────────────────────────
+  // ── 所有 hooks 必须无条件调用，放在最前面 ─────────────────────────────────
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
   const inputKey = useRef(0);
-
-  // initFlagRef: 防止 useEffect 在每次渲染时都执行初始化逻辑
   const initFlagRef = useRef(false);
 
-  // 初始化：只在首次渲染时运行（类似 componentDidMount）
+  // 初始化 useEffect（initFlagRef 保证只运行一次）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (initFlagRef.current) return;
     initFlagRef.current = true;
@@ -82,11 +81,9 @@ const Practice: React.FC = () => {
       console.log('[Practice] Source: existing session, words:', session.words.length);
     } else {
       console.log('[Practice] No words found, redirecting...');
-      // 强制重定向，延迟 100ms 确保 navigate 执行
       setTimeout(() => navigate('/levels'), 100);
     }
 
-    // 容错：如果 2 秒后还是没有 sessionWords，强制跳转
     const timer = setTimeout(() => {
       if (!session?.words?.length) {
         console.log('[Practice] Timeout, forcing redirect');
@@ -94,18 +91,17 @@ const Practice: React.FC = () => {
       }
     }, 2000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Intentionally empty: init runs once via initFlagRef
+  }, []);
 
-  // 依赖 deps 固定，hooks 调用顺序永远不会变 ───────────────────────────────
-
-  // currentWord / levelInfo / themeInfo：用条件计算，但不在 hooks 调用前 return
-  const params: PracticeParams | null = (location.state as PracticeParams | null) || readSessionStorage();
-  const currentWord: Word | null = session?.words?.length ? session.words[session.currentIndex] : null;
+  // 派生的中间变量（在 hooks 之后、early return 之前）
+  const params: PracticeParams | null =
+    (location.state as PracticeParams | null) || readSessionStorage();
+  const currentWord: Word | null =
+    session?.words?.length ? session.words[session.currentIndex] : null;
   const levelInfo = params ? getLevelInfo(params.level) : null;
   const themeInfo = currentWord ? getWrongTheme(currentWord.theme) : null;
 
-  // Auto-play
+  // Auto-play useEffect
   useEffect(() => {
     if (currentWord && !answered) {
       const timer = setTimeout(() => speak(currentWord.word), 300);
@@ -113,20 +109,7 @@ const Practice: React.FC = () => {
     }
   }, [session?.currentIndex, answered, currentWord?.word, speak]);
 
-  // Loading 状态：session 还没初始化
-  if (!session?.words?.length) {
-    return (
-      <div className="page practice-page">
-        <div className="loading-state">
-          <div className="loading-emoji">⭐</div>
-          <div>加载中...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 正常渲染（session 已就绪，所有 hooks 已无条件调用） ──────────────────
-
+  // ── 所有 useCallback 必须在 early return 之前定义（确保 hooks 数量固定） ──
   const handleKeyPress = useCallback(
     (letter: string) => {
       if (answered || !currentWord) return;
@@ -176,7 +159,16 @@ const Practice: React.FC = () => {
         lastWrongDate: new Date().toISOString(),
       });
     }
-  }, [answered, currentWord, addPoints, addCompletedWord, removeWrongWord, addWrongWord, addSticker, showToast]);
+  }, [
+    answered,
+    currentWord,
+    addPoints,
+    addCompletedWord,
+    removeWrongWord,
+    addWrongWord,
+    addSticker,
+    showToast,
+  ]);
 
   const handleNext = useCallback(() => {
     setShowFeedback(false);
@@ -190,6 +182,20 @@ const Practice: React.FC = () => {
   const handleSkip = useCallback(() => {
     if (!answered) handleNext();
   }, [answered, handleNext]);
+
+  // ── Early return（所有 hooks 已无条件调用，顺序固定） ──────────────────────
+  if (!session?.words?.length) {
+    return (
+      <div className="page practice-page">
+        <div className="loading-state">
+          <div className="loading-emoji">⭐</div>
+          <div>加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 正常渲染 ──────────────────────────────────────────────────────────────
 
   const total = session.words.length;
   const current = session.currentIndex + 1;
