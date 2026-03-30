@@ -1,13 +1,16 @@
 .keyboard-wrapper {
   padding: var(--space-sm);
   background: var(--background);
+  overflow-x: auto;
+  /* 确保在极小屏幕上也不溢出 */
+  max-width: 100%;
 }
 
 .keyboard-row {
   display: flex;
   justify-content: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 5px;
+  margin-bottom: 5px;
 }
 
 .keyboard-row:last-child {
@@ -15,12 +18,11 @@
 }
 
 .letter-key {
-  width: 36px;
   height: 52px;
   border-radius: var(--radius-md);
   background: white;
   border: 2px solid #E0E0E0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
@@ -29,7 +31,10 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-en);
-  flex-shrink: 0;
+  /* 允许 keys 收缩以适应屏幕宽度 */
+  flex: 1;
+  min-width: 0;
+  max-width: 42px;
 }
 
 .letter-key:active:not(.disabled) {
@@ -47,15 +52,22 @@
   background: var(--error-light);
   border-color: var(--error);
   color: var(--error);
-  font-size: 18px;
+  font-size: 16px;
+  /* delete 按钮也收缩 */
+  flex: 1;
+  min-width: 0;
+  max-width: 52px;
 }
 
 .letter-key.confirm {
   background: var(--success);
   border-color: var(--success);
   color: white;
-  font-size: 22px;
-  width: 72px;
+  font-size: 20px;
+  /* confirm 按钮宽度较大 */
+  flex: 1.5;
+  min-width: 0;
+  max-width: 72px;
 }
 
 .letter-key.confirm:active:not(.disabled) {
@@ -64,12 +76,10 @@
 
 @media (min-width: 400px) {
   .letter-key {
-    width: 42px;
-    height: 56px;
-    font-size: 22px;
+    font-size: 20px;
+    max-width: 52px;
   }
-
   .letter-key.confirm {
-    width: 80px;
+    max-width: 88px;
   }
 }
