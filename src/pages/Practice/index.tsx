@@ -52,7 +52,7 @@ const Practice: React.FC = () => {
   const [answered, setAnswered] = useState(false);
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
-  const inputKey = useRef(0);
+  const [inputKey, setInputKey] = useState(0);
   const initFlagRef = useRef(false);
 
   // 初始化 useEffect（initFlagRef 保证只运行一次）
@@ -105,7 +105,7 @@ const Practice: React.FC = () => {
       if (answered || !currentWord) return;
       if (inputRef.current.length >= currentWord.word.length) return;
       inputRef.current = [...inputRef.current, letter.toUpperCase()];
-      inputKey.current += 1;
+      setInputKey(prev => prev + 1);
     },
     [answered, currentWord]
   );
@@ -113,7 +113,7 @@ const Practice: React.FC = () => {
   const handleDelete = useCallback(() => {
     if (answered) return;
     inputRef.current = inputRef.current.slice(0, -1);
-    inputKey.current += 1;
+    setInputKey(prev => prev + 1);
   }, [answered]);
 
   const handleConfirm = useCallback(() => {
@@ -164,7 +164,7 @@ const Practice: React.FC = () => {
     setShowFeedback(false);
     setAnswered(false);
     inputRef.current = [];
-    inputKey.current += 1;
+    setInputKey(prev => prev + 1);
     setStickersEarned([]);
     nextWord();
   }, [nextWord]);
@@ -246,7 +246,7 @@ const Practice: React.FC = () => {
         )}
 
         {/* Answer slots */}
-        <div className="answer-slot" key={inputKey.current}>
+        <div className="answer-slot" key={inputKey}>
           {currentWord?.word.split('').map((_, idx) => (
             <div
               key={idx}
