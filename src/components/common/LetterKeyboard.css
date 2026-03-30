@@ -74,6 +74,27 @@
   background: #00a884;
 }
 
+/* 宽按钮（⌫ 和 ✓）比普通字母稍宽 */
+.letter-key.wide {
+  flex: 1.4;
+  min-width: 0;
+  max-width: 60px;
+}
+
+/* ✓ 确认按钮独占一行 */
+.letter-key.full-row {
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  height: 56px;
+  font-size: 22px;
+}
+
+/* 第四行（✓）布局 */
+.keyboard-row:has(.full-row) {
+  justify-content: stretch;
+}
+
 @media (min-width: 400px) {
   .letter-key {
     font-size: 20px;

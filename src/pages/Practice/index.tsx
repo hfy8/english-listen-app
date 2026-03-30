@@ -53,6 +53,8 @@ const Practice: React.FC = () => {
   const [stickersEarned, setStickersEarned] = useState<string[]>([]);
   const inputRef = useRef<string[]>([]);
   const [inputKey, setInputKey] = useState(0);
+  // 用于 handleKeyPress 中 setTimeout 调用 handleConfirm（避免提前引用）
+  const handleConfirmRef = useRef<() => void>(() => {});
   const initFlagRef = useRef(false);
 
   // 初始化 useEffect（initFlagRef 保证只运行一次）
@@ -106,6 +108,12 @@ const Practice: React.FC = () => {
       if (inputRef.current.length >= currentWord.word.length) return;
       inputRef.current = [...inputRef.current, letter.toUpperCase()];
       setInputKey(prev => prev + 1);
+
+      // 填满最后一个槽时，自动触发确认（不用手动点✓）
+      if (inputRef.current.length === currentWord.word.length) {
+        // 填满时通过 ref 调用（handleConfirm 尚未定义，用 ref 避免 forward reference）
+        setTimeout(() => handleConfirmRef.current(), 50);
+      }
     },
     [answered, currentWord]
   );
@@ -159,6 +167,11 @@ const Practice: React.FC = () => {
     addSticker,
     showToast,
   ]);
+
+  // 保持 handleConfirmRef 始终指向最新的 handleConfirm
+  useEffect(() => {
+    handleConfirmRef.current = handleConfirm;
+  });
 
   const handleNext = useCallback(() => {
     setShowFeedback(false);

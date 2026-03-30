@@ -12,6 +12,7 @@ const KEYBOARD_ROWS = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
   ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
   ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '⌫'],
+  ['✓'],
 ];
 
 export const LetterKeyboard: React.FC<Props> = ({
@@ -22,34 +23,40 @@ export const LetterKeyboard: React.FC<Props> = ({
 }) => {
   return (
     <div className="keyboard-wrapper">
-      {KEYBOARD_ROWS.map((row, rowIndex) => (
-        <div key={rowIndex} className="keyboard-row">
-          {row.map((key) => {
-            const isDelete = key === '⌫';
-            const isConfirm = key === '✓';
+      {KEYBOARD_ROWS.map((row, rowIndex) => {
+        const isLastRow = rowIndex === KEYBOARD_ROWS.length - 1;
+        return (
+          <div key={rowIndex} className="keyboard-row">
+            {row.map((key) => {
+              const isDelete = key === '⌫';
+              const isConfirm = key === '✓';
+              const isWide = isDelete || isConfirm;
 
-            let className = 'letter-key';
-            if (disabled) className += ' disabled';
-            if (isDelete) className += ' delete';
-            if (isConfirm) className += ' confirm';
+              let className = 'letter-key';
+              if (disabled) className += ' disabled';
+              if (isDelete) className += ' delete';
+              if (isConfirm) className += ' confirm';
+              if (isWide) className += ' wide';
+              if (isLastRow) className += ' full-row';
 
-            return (
-              <button
-                key={key}
-                className={className}
-                onClick={() => {
-                  if (isDelete) onDelete();
-                  else if (isConfirm) onConfirm();
-                  else onKeyPress(key.toLowerCase());
-                }}
-                disabled={disabled}
-              >
-                {isDelete ? '←' : isConfirm ? '✓' : key}
-              </button>
-            );
-          })}
-        </div>
-      ))}
+              return (
+                <button
+                  key={key}
+                  className={className}
+                  onClick={() => {
+                    if (isDelete) onDelete();
+                    else if (isConfirm) onConfirm();
+                    else onKeyPress(key.toLowerCase());
+                  }}
+                  disabled={disabled}
+                >
+                  {isDelete ? '←' : isConfirm ? '✓' : key}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 };
