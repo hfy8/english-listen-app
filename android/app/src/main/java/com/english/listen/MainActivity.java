@@ -2,8 +2,13 @@ package com.english.listen;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
+import com.english.listen.tts.TtsPlugin;
 
 public class MainActivity extends BridgeActivity {
-    // Capacitor 8: plugins auto-discovered via @CapacitorPlugin annotation
-    // No manual registration needed when 'io.ionic.capacitor' gradle plugin is applied
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // 手动注册 TTS 原生插件（speechSynthesis 在 Android WebView 不可用）
+        this.registerPlugin(TtsPlugin.class);
+    }
 }
